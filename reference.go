@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -96,7 +98,20 @@ func getFunctionName(filename string, linenum int) (string, error) {
 }
 
 func getDefine(function string) ([]functionTags, error) {
-	globalOut, err := execute("global", "-x", function)
+	if function == "" {
+		return []functionTags{}, fmt.Errorf("Empty function name")
+	}
+	globalArgs := []string{
+		"-x",
+		function,
+	}
+	if extendTag {
+		globalArgs = []string{
+			"-ix",
+			".*" + function + ".*",
+		}
+	}
+	globalOut, err := execute("global", globalArgs...)
 	if err != nil {
 		return []functionTags{}, err
 	}
@@ -148,10 +163,13 @@ func getReference(function string) ([]functionTags, error) {
 	return functionSlice, nil
 }
 
-func (f *functionReferences) AddFunction(function string) {
+func (f *functionReferences) AddFunction(function string) (int, error) {
 	defines, err := getDefine(function)
 	if err != nil {
-		return
+		return 0, err
+	}
+	if len(defines) == 0 {
+		return 0, fmt.Errorf("Reference Empty")
 	}
 	for _, define := range defines {
 		*f = append(*f, functionReference{
@@ -164,6 +182,17 @@ func (f *functionReferences) AddFunction(function string) {
 			folder:   true,
 		})
 	}
+	return len(defines), nil
+}
+func (f *functionReferences) OpenFile(index int) {
+	if index >= len(*f) {
+		return
+	}
+	fref := &[]functionReference(*f)[index]
+	cmd := exec.Command("vim", fref.file, fmt.Sprintf("+%d", fref.line))
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 func (f *functionReferences) ReferenceByIndex(index int) {
 	fLen := len([]functionReference(*f))
@@ -305,4 +334,8 @@ func (f *functionReferences) List() []string {
 		funcList = []string{simpleHelp}
 	}
 	return funcList
+}
+
+func (f *functionReferences) Size() int {
+	return len([]functionReference(*f))
 }

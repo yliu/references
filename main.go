@@ -7,6 +7,7 @@ import (
 
 var isCtags bool
 var isGlobal bool
+var extendTag bool
 
 func init() {
 	e := checkCtags()
@@ -19,7 +20,9 @@ func init() {
 		os.Exit(0)
 	}
 	isGlobal = true
+
+	extendTag = true
 }
 func main() {
-	newUI()
+	newUI(os.Args[1:])
 }
